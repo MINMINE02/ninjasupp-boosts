@@ -1,28 +1,9 @@
 {
-  "name": "ninja-boost",
-  "version": "1.0.0",
-  "description": "Ninja Boost - Discord server boosting platform (key redeem) integrating the Salta7 API",
-  "main": "server.js",
-  "type": "commonjs",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "build:js": "javascript-obfuscator src/app.js --output public/app.js --compact true --self-defending true --control-flow-flattening false --dead-code-injection false --string-array true --string-array-threshold 0.75 --string-array-encoding base64 --identifier-names-generator hexadecimal --rename-globals false --transform-object-keys false --numbers-to-expressions true --simplify true"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2",
-    "qrcode": "^1.5.4"
-  },
-  "license": "MIT",
-  "devDependencies": {
-    "javascript-obfuscator": "^5.5.0"
-  }
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/server.js"
+    }
+  ]
 }
