@@ -244,7 +244,7 @@ async function processDeposit(deposit) {
   const requested = deposit.amount != null ? Number(deposit.amount) : null;
 
   // Not enough yet: keep the observed amount but stay pending.
-  const enough = requested != null ? received >= requested * 0.999 : received > 0;
+  const enough = requested != null ? received >= requested * 0.95 : received > 0;
   if (!enough) {
     if (received !== Number(deposit.received)) {
       const { data: updated } = await supabase
