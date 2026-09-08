@@ -103,12 +103,16 @@ class TatumService {
    * Address balance. Tatum returns strings like { incoming, outgoing }.
    * Returns { incoming, outgoing, received } as numbers (received = net in).
    */
+    /**
+   * Address balance.
+   * Tatum v3 returns { balance: "0.018..." } or { incoming, outgoing }.
+   */
   async getAddressBalance(address) {
     const data = await this._request(`/litecoin/address/${address}`);
-    const incoming = Number(data.incoming || 0);
-    const outgoing = Number(data.outgoing || 0);
-    return { incoming, outgoing, received: incoming };
+    const balance = Number(data.balance ?? data.incoming ?? 0);
+    return { balance, received: balance };
   }
+
 
   /**
    * Forward the given amount of LTC from a derived deposit address to the
