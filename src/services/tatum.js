@@ -108,7 +108,7 @@ class TatumService {
    * Tatum v3 returns { balance: "0.018..." } or { incoming, outgoing }.
    */
   async getAddressBalance(address) {
-    const data = await this._request(`/litecoin/address/${address}`);
+    const data = await this._request(`/litecoin/address/balance/${address}`);
     const balance = Number(data.balance ?? data.incoming ?? 0);
     return { balance, received: balance };
   }
