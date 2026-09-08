@@ -104,7 +104,7 @@ class TatumService {
    * Returns { incoming, outgoing, received } as numbers (received = net in).
    */
   async getAddressBalance(address) {
-    const data = await this._request(`/litecoin/address/balance/${address}`);
+    const data = await this._request(`/litecoin/address/${address}`);
     const incoming = Number(data.incoming || 0);
     const outgoing = Number(data.outgoing || 0);
     return { incoming, outgoing, received: incoming };
