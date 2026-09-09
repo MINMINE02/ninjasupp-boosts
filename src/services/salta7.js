@@ -72,15 +72,16 @@ class Salta7Service {
     }
 
     if (!response.ok) {
-      // Salta7 returns errors as { "detail": "..." }.
-      const message =
-        (data && (data.detail || data.message || data.error)) ||
-        `Salta7 responded with ${response.status}`;
-      const err = new Error(message);
+      let rawMsg = data?.detail || data?.message || data?.error || data;
+      if (typeof rawMsg === 'object') {
+        rawMsg = JSON.stringify(rawMsg);
+      }
+      const err = new Error(rawMsg || `Salta7 responded with ${response.status}`);
       err.status = response.status;
       err.data = data;
       throw err;
     }
+
 
     return data;
   }
