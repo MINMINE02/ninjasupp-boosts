@@ -103,19 +103,24 @@ class Salta7Service {
    * @param {string}   invite   invite (e.g. "discord.gg/abc123" or a code)
    * @param {string[]} tokens   the tokens to boost with (stock or the user's)
    */
-  async createBoostJob(invite, tokens) {
-    // Match the documented invite form ("discord.gg/abc123"); a bare code is
-    // prefixed, a full link/code with a slash is passed through unchanged.
+    async createBoostJob(invite, tokens) {
     const raw = String(invite || '');
     const inviteValue = raw.includes('/') ? raw : `discord.gg/${raw}`;
+    
+    // Formate les tokens sous forme de texte avec un token par ligne
+    const tokenList = Array.isArray(tokens)
+      ? tokens.map(t => String(t).trim()).filter(Boolean).join('\n')
+      : String(tokens || '').trim();
+
     const body = {
       tool: 'boost',
       mode: 'byot',
       invite: inviteValue,
-      tokens: Array.isArray(tokens) ? tokens : [],
+      tokens: tokenList,
     };
     return this._request('/task/create', { method: 'POST', body });
   }
+
 
   /**
    * GET /task/status — check the progress of a job.
