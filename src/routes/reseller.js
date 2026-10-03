@@ -359,12 +359,19 @@ router.get('/sellauth', asyncHandler(async (req, res) => {
   if (uErr) throw uErr;
   if (pErr) throw pErr;
   if (dErr) throw dErr;
+  // sellauth_mode lives in its own column (db/migration_sellauth_direct.sql) — optional until it has run.
+  const { data: m, error: mErr } = await supabase.from('users').select('sellauth_mode').eq('id', id).maybeSingle();
+  const info = await require('../services/sellauthInfo').describe(deliveries);
+  require('../services/jobDriver').syncDirectJobs().catch(() => {});
   res.json({
+    deliveryMode: !mErr && m && m.sellauth_mode === 'key' ? 'key' : 'direct',
+    modeSupported: !mErr,
     ref: u?.sellauth_ref || null,
     secretSet: Boolean(u?.sellauth_secret),
     defaultBoosts: Number(u?.sellauth_default_boosts) || 0,
     products: (products || []).map((p) => ({ id: p.id, sellauthId: p.sellauth_id, label: p.label || '', boosts: p.boosts_value })),
     deliveries: (deliveries || []).map((d) => ({
+      direct: Boolean(info.get(d.key_code)), job: info.get(d.key_code) || null,
       id: d.id, invoiceId: d.invoice_id, product: d.product_name, boosts: d.boosts_value, key: d.key_code,
       serverLink: d.server_link || '', status: d.status, error: d.error,
       payload: d.status === 'error' ? d.payload : undefined, createdAt: d.created_at,
@@ -394,6 +401,15 @@ router.patch('/sellauth', asyncHandler(async (req, res) => {
     const n = Number(req.body.defaultBoosts || 0);
     if (!Number.isInteger(n) || n < 0 || n > 1000) return res.status(400).json({ error: 'Fallback boosts must be a whole number' });
     patch.sellauth_default_boosts = n;
+  }
+  if (req.body?.deliveryMode !== undefined) {
+    const mode = String(req.body.deliveryMode);
+    if (!['direct', 'key'].includes(mode)) return res.status(400).json({ error: 'Delivery mode must be direct or key' });
+    const { error } = await supabase.from('users').update({ sellauth_mode: mode }).eq('id', req.reseller.id);
+    if (error) {
+      if (/sellauth_mode|schema cache|column/i.test(error.message || '')) return res.status(500).json({ error: 'Run db/migration_sellauth_direct.sql in Supabase first (adds the delivery-mode setting).' });
+      throw error;
+    }
   }
   if (Object.keys(patch).length) {
     const { error } = await supabase.from('users').update(patch).eq('id', req.reseller.id);

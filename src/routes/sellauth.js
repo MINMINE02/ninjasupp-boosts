@@ -6,7 +6,17 @@
  * SellAuth POSTs one JSON request per invoice item to the webhook URL set on
  * the product (Deliverables -> Dynamic Delivery). We answer HTTP 200 with the
  * text to hand to the customer: one line = one deliverable. Here that is a
- * single freshly generated redeem key worth N boosts.
+ * single freshly generated redeem key worth N boosts — OR, in DIRECT mode (the
+ * default), the server is boosted right away with the invite the buyer typed in
+ * the "Server Link" custom field, and no key is handed out at all.
+ *
+ *   Direct mode : the buyer's invite is used straight away; if it is missing /
+ *                 invalid, or the boost cannot start (no stock, no credit,
+ *                 provider down), a key is delivered instead so a paying
+ *                 customer is never left empty-handed.
+ *   Key mode    : the old behaviour (a key worth N boosts).
+ *   Choose per product with  ?mode=direct  /  ?mode=key  on the webhook URL, or
+ *   set the default in the panel.
  *
  *   Webhook URL : https://YOUR-DOMAIN/api/sellauth/deliver          (platform owner)
  *                 https://YOUR-DOMAIN/api/sellauth/r/<ref>          (a reseller)
@@ -23,6 +33,12 @@ const express = require('express');
 const supabase = require('../config/supabase');
 const { asyncHandler, generateKeyCode, parseInviteCode } = require('../utils/helpers');
 const { getConfig } = require('../services/config');
+const { startRedeem } = require('./boost');
+const jobDriver = require('../services/jobDriver');
+
+const PROCESSING = 'processing';              // marker on the delivery row while a direct boost is starting
+const PROCESSING_STALE_MS = 90_000;            // a lock older than this is taken over by a retry
+const MODES = ['direct', 'key'];
 
 const router = express.Router();
 
@@ -146,8 +162,43 @@ router.get('/health', asyncHandler(async (req, res) => {
   res.json({ ok: true, secretConfigured: Boolean(await getWebhookSecret()) });
 }));
 
+const directMessage = (boosts, link, jobId) =>
+  `Boost started: ${boosts} boost${Number(boosts) === 1 ? '' : 's'} on ${link} — it is applied within a few minutes. Reference: ${String(jobId || '').slice(0, 8) || 'n/a'}`;
+
+// Creates a key row. `source` 'sellauth-direct' = an internal key that only exists to
+// carry a direct boost (it is never shown to the buyer unless the boost could not start).
+async function createKey({ ownerId, boosts, serverLink, source, invoiceId }) {
+  for (let i = 0; i < 5; i += 1) {
+    const { data, error } = await supabase
+      .from('redeem_keys')
+      .insert({
+        code: generateKeyCode(),
+        boosts_value: boosts,
+        source,
+        server_link: serverLink,
+        ...(ownerId ? { owner_id: ownerId } : {}),
+        note: invoiceId ? `SellAuth invoice ${invoiceId}` : 'SellAuth',
+      })
+      .select('id, code')
+      .single();
+    if (!error) return data;
+    if (!/duplicate|unique/i.test(error.message || '')) throw error;
+  }
+  throw new Error('Could not generate a unique key');
+}
+
+// What to answer a RETRY of a delivery we already completed.
+async function replayText(existing) {
+  const { data: key } = await supabase.from('redeem_keys').select('id, source, boosts_value, server_link').eq('code', existing.key_code).maybeSingle();
+  if (key && key.source === jobDriver.DIRECT_SOURCE) {
+    const { data: job } = await supabase.from('jobs').select('id').eq('key_id', key.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    return directMessage(key.boosts_value, existing.server_link || key.server_link || 'your server', job && job.id);
+  }
+  return existing.key_code;
+}
+
 // One implementation for the platform owner (/deliver) and for every reseller
-// (/r/:ref). ctx = { ownerId, secret, defaultBoosts(), linkField }.
+// (/r/:ref). ctx = { ownerId, secret, defaultBoosts(), linkField, mode }.
 async function deliver(req, res, ctx) {
   const { ownerId, secret } = ctx;
   if (!secret) {
@@ -168,14 +219,19 @@ async function deliver(req, res, ctx) {
   const productName = pick(body, ['product.name', 'item.product.name']);
   const payload = JSON.stringify(body).length < 20000 ? body : { truncated: true };
 
-  // Retry of a delivery we already completed -> same key, no new one.
+  // Retry of a delivery we already completed -> same answer, nothing new started.
   const { data: existing } = await supabase
     .from('sellauth_deliveries')
-    .select('id, status, key_code')
+    .select('id, status, key_code, error, server_link, boosts_value, created_at')
     .eq('idempotency_key', idem)
     .maybeSingle();
   if (existing && existing.status === 'delivered' && existing.key_code) {
-    return res.status(200).type('text/plain').send(existing.key_code);
+    return res.status(200).type('text/plain').send(await replayText(existing));
+  }
+  // The first attempt is still starting the boost: ask SellAuth to come back.
+  const age = existing ? Date.now() - new Date(existing.created_at).getTime() : 0;
+  if (existing && existing.status === 'error' && existing.error === PROCESSING && age < PROCESSING_STALE_MS) {
+    return res.status(503).type('text/plain').send('Delivery in progress, please retry shortly');
   }
 
   const resolved = await resolveBoosts(req, body, ctx);
@@ -189,6 +245,7 @@ async function deliver(req, res, ctx) {
     payload,
     ...(ownerId ? { owner_id: ownerId } : {}),
   };
+  const baseInvoice = base.invoice_id;
 
   if (!resolved) {
     const row = { ...base, status: 'error', error: 'Could not work out how many boosts this product is worth' };
@@ -197,27 +254,80 @@ async function deliver(req, res, ctx) {
     return res.status(422).type('text/plain').send('Product is not linked to a boost amount');
   }
 
-  // Create the key (unique 16-char code, retry on the rare collision).
-  let key = null;
-  for (let i = 0; i < 5 && !key; i += 1) {
-    const { data, error } = await supabase
-      .from('redeem_keys')
-      .insert({
-        code: generateKeyCode(),
-        boosts_value: resolved.boosts,
-        source: 'sellauth',
-        server_link: serverLink,
-        ...(ownerId ? { owner_id: ownerId } : {}),
-        note: base.invoice_id ? `SellAuth invoice ${base.invoice_id}` : 'SellAuth',
-      })
-      .select('id, code')
-      .single();
-    if (!error) key = data;
-    else if (!/duplicate|unique/i.test(error.message || '')) throw error;
-  }
-  if (!key) throw new Error('Could not generate a unique key');
+  const mode = MODES.includes(String(req.query.mode || '').toLowerCase())
+    ? String(req.query.mode).toLowerCase()
+    : (MODES.includes(ctx.mode) ? ctx.mode : 'direct');
 
-  const row = { ...base, boosts_value: resolved.boosts, key_code: key.code, status: 'delivered', error: null };
+  // Why a key is handed out instead of boosting directly (shown in the delivery log).
+  let fallbackNote = null;
+
+  /* --------------------------- DIRECT: boost now --------------------------- */
+  if (mode === 'direct' && serverLink) {
+    const invite = parseInviteCode(serverLink);
+    // 1) lock the delivery row so a SellAuth retry can't start a second boost
+    const lockRow = { ...base, boosts_value: resolved.boosts, status: 'error', error: PROCESSING };
+    let lockErr;
+    if (existing) {
+      ({ error: lockErr } = await supabase.from('sellauth_deliveries').update({ ...lockRow, created_at: new Date().toISOString() }).eq('id', existing.id));
+    } else {
+      ({ error: lockErr } = await supabase.from('sellauth_deliveries').insert(lockRow));
+    }
+    if (lockErr) {
+      // Lost a race with an identical request that is already on it.
+      return res.status(503).type('text/plain').send('Delivery in progress, please retry shortly');
+    }
+
+    // 2) the internal key that carries the boost — reuse the one of a crashed attempt
+    let key = null;
+    if (existing && existing.key_code) {
+      const { data: old } = await supabase.from('redeem_keys').select('*').eq('code', existing.key_code).maybeSingle();
+      if (old && old.source === jobDriver.DIRECT_SOURCE) {
+        if (old.redeemed_at) {
+          const { data: oldJob } = await supabase.from('jobs').select('id').eq('key_id', old.id).limit(1).maybeSingle();
+          if (oldJob) { // the boost DID start before the crash: finish the bookkeeping, start nothing
+            await supabase.from('sellauth_deliveries').update({ status: 'delivered', error: null }).eq('idempotency_key', idem);
+            return res.status(200).type('text/plain').send(directMessage(old.boosts_value, serverLink, oldJob.id));
+          }
+          await supabase.from('redeem_keys').update({ redeemed_at: null, redeemed_invite: null }).eq('id', old.id);
+        }
+        key = { ...old, redeemed_at: null };
+      }
+    }
+    if (!key) {
+      key = await createKey({ ownerId, boosts: resolved.boosts, serverLink, source: jobDriver.DIRECT_SOURCE, invoiceId: baseInvoice });
+      key = { ...key, boosts_value: resolved.boosts, boosts_delivered: 0, owner_id: ownerId || null, redeemed_at: null };
+    }
+    await supabase.from('sellauth_deliveries').update({ key_code: key.code }).eq('idempotency_key', idem);
+
+    // 3) start the boost (stock, credit and the provider are all checked in here)
+    let r;
+    try {
+      r = await startRedeem(key, invite, null, { direct: true });
+    } catch (err) {
+      r = { status: 500, body: { error: err.message || 'unexpected error' } };
+    }
+    if (r.status === 201 && r.body && r.body.job) {
+      await supabase.from('sellauth_deliveries').update({ status: 'delivered', error: null, boosts_value: resolved.boosts, key_code: key.code }).eq('idempotency_key', idem);
+      // Nobody is watching this job: make sure it keeps moving even right away.
+      jobDriver.syncDirectJobs().catch(() => {});
+      return res.status(200).type('text/plain').send(directMessage(resolved.boosts, serverLink, r.body.job.id));
+    }
+
+    // 4) could not start -> the key was released: hand it out so the buyer still gets what they paid for
+    fallbackNote = `Direct boost could not start (${(r.body && r.body.error) || 'unknown error'}) — a key was delivered instead`;
+    await supabase.from('redeem_keys').update({ source: 'sellauth', note: `${baseInvoice ? `SellAuth invoice ${baseInvoice}` : 'SellAuth'} (direct boost failed)` }).eq('id', key.id);
+    await supabase.from('sellauth_deliveries').update({ status: 'delivered', error: fallbackNote, boosts_value: resolved.boosts, key_code: key.code }).eq('idempotency_key', idem);
+    return res.status(200).type('text/plain').send(key.code);
+  }
+
+  if (mode === 'direct' && !serverLink) {
+    fallbackNote = 'No valid server link in the order (custom field empty or not an invite) — a key was delivered instead';
+  }
+
+  /* ------------------------------ KEY: hand out ---------------------------- */
+  const key = await createKey({ ownerId, boosts: resolved.boosts, serverLink, source: 'sellauth', invoiceId: baseInvoice });
+
+  const row = { ...base, boosts_value: resolved.boosts, key_code: key.code, status: 'delivered', error: fallbackNote };
   let saveErr;
   if (existing) {
     ({ error: saveErr } = await supabase.from('sellauth_deliveries').update(row).eq('id', existing.id));
@@ -247,6 +357,7 @@ router.post(
     secret: await getWebhookSecret(),
     defaultBoosts: () => getConfig('sellauth_default_boosts'),
     linkField: await getConfig('sellauth_link_field'),
+    mode: await getConfig('sellauth_delivery_mode'),
   }))
 );
 
@@ -257,13 +368,12 @@ router.post(
   '/r/:ref',
   asyncHandler(async (req, res) => {
     const ref = String(req.params.ref || '');
-    const { data: u } = ref.length >= 16
-      ? await supabase
-        .from('users')
-        .select('id, reseller, sellauth_secret, sellauth_default_boosts')
-        .eq('sellauth_ref', ref)
-        .maybeSingle()
-      : { data: null };
+    const load = async (cols) => (ref.length >= 16
+      ? supabase.from('users').select(cols).eq('sellauth_ref', ref).maybeSingle()
+      : { data: null });
+    let { data: u, error: uErr } = await load('id, reseller, sellauth_secret, sellauth_default_boosts, sellauth_mode');
+    // db/migration_sellauth_direct.sql not run yet: still serve the webhook (direct is the default)
+    if (uErr) ({ data: u } = await load('id, reseller, sellauth_secret, sellauth_default_boosts'));
     if (!u) return res.status(404).type('text/plain').send('Unknown webhook');
     if (!u.reseller) return res.status(403).type('text/plain').send('Reseller access is disabled');
     return deliver(req, res, {
@@ -271,6 +381,7 @@ router.post(
       secret: u.sellauth_secret || '',
       defaultBoosts: () => u.sellauth_default_boosts,
       linkField: null,
+      mode: u.sellauth_mode || null,
     });
   })
 );
