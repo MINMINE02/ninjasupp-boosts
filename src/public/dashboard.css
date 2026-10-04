@@ -1,0 +1,207 @@
+/* ==================================================================== */
+/*  NINJA BOOST — dashboard layer                                        */
+/*  Loaded AFTER styles.css. Refines layout; inherits modern dark palette */
+/* ==================================================================== */
+
+:root {
+  --surface: #080808;
+  --side-w: 252px;
+  --r-card: 14px;
+}
+
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 70% 45% at 70% -15%, rgba(var(--accent-rgb), 0.16) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 30% at 0% 100%, rgba(var(--accent-dark-rgb), 0.07) 0%, transparent 50%);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+/* ---------- surfaces ---------- */
+.sec-card, .card {
+  border-radius: var(--r-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: linear-gradient(180deg, rgba(22, 22, 22, 0.95) 0%, rgba(12, 12, 12, 0.98) 100%);
+}
+.sec-card { padding: 20px; }
+.sec-badge {
+  width: 38px; height: 38px; border-radius: 10px;
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+}
+.sec-title { font-size: 13px; letter-spacing: .06em; }
+.header { background: rgba(5, 5, 5, .78); box-shadow: none; }
+.card-narrow { max-width: none; }
+.card-title { font-size: 15px; }
+
+.table th { text-transform: none; letter-spacing: 0; font-size: 12.5px; background: var(--card-2); }
+.table th:first-child { border-top-left-radius: 8px; }
+.table th:last-child { border-top-right-radius: 8px; }
+.table tbody tr:hover td { background: rgba(var(--accent-rgb), .04); }
+.table-wrap {
+  border: 1px solid var(--border); border-radius: 10px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 10px, #000 calc(100% - 10px), transparent);
+}
+.table tr:last-child td { border-bottom: 0; }
+
+.btn-primary, .start-btn {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12) inset,
+    0 8px 22px rgba(var(--accent-dark-rgb), .36);
+}
+
+/* ==================================================================== */
+/*  REDEEM PAGE (public view)                                            */
+/* ==================================================================== */
+.public-view .header { padding: 12px 28px; }
+.public-view .boost-main { max-width: 940px; padding: 34px 24px 70px; }
+
+.public-view .brand-title {
+  text-align: left; margin: 0 0 6px; line-height: 1.1;
+}
+.public-view .brand-top,
+.public-view .brand-bottom {
+  animation: none; background: none; -webkit-text-fill-color: currentColor; color: var(--text);
+  background-clip: border-box; -webkit-background-clip: border-box;
+}
+.public-view .brand-top {
+  font-size: clamp(28px, 5vw, 36px); font-weight: 800; letter-spacing: -.03em;
+  background-image: linear-gradient(135deg, #fff 0%, var(--accent-tint) 55%, var(--accent) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.public-view .brand-bottom {
+  font-size: 15px; font-weight: 500; color: var(--muted); margin-top: 6px;
+  -webkit-text-fill-color: var(--muted);
+}
+.public-view .chips { justify-content: flex-start; margin: 14px 0 24px; gap: 8px; }
+.public-view .chip { padding: 7px 13px; font-size: 12.5px; border-radius: 9px; }
+.public-view .chip-accent {
+  background: linear-gradient(165deg, var(--accent-bright), var(--accent-dark));
+  border-color: rgba(255, 255, 255, 0.1); color: var(--on-accent);
+  box-shadow: 0 4px 14px rgba(var(--accent-dark-rgb), 0.28);
+}
+.public-view .chip-accent svg { color: var(--on-accent); }
+
+.public-view .booster {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start;
+}
+.public-view .booster > .start-btn,
+.public-view .booster > .hint,
+.public-view .booster > .form-message,
+.public-view .booster > .cost-note,
+.public-view .booster > .status-box { grid-column: 1 / -1; }
+.public-view .booster > .form-message:empty { display: none; }
+.public-view .start-btn { border-radius: 13px; padding: 16px; }
+
+.key-field { font-size: 17px; letter-spacing: 3px; text-align: center; padding: 15px 12px; }
+
+/* ==================================================================== */
+/*  LOGGED-IN DASHBOARD (sidebar + content)                              */
+/* ==================================================================== */
+#app-view.app-view {
+  display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: 100vh;
+}
+#app-view .dash-side {
+  position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 16px;
+  padding: 18px 14px; background: var(--surface);
+  border-right: 1px solid var(--border); overflow-y: auto;
+}
+#app-view .dash-side .logo { padding: 2px 8px; font-size: 18px; }
+#app-view .account-bar {
+  flex: 1; display: flex; flex-direction: column; gap: 16px;
+  background: none; border: 0; box-shadow: none; padding: 0; margin: 0; border-radius: 0;
+}
+
+#app-view .account-info {
+  display: grid; gap: 10px; justify-content: stretch; padding: 14px; margin: 0;
+  background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.08) 0%, var(--card) 45%);
+  border: 1px solid rgba(var(--accent-rgb), 0.22); border-radius: var(--r-card);
+}
+#app-view .ai-item { justify-content: space-between; font-size: 13px; }
+#app-view .ai-item:first-child { color: var(--text); }
+#app-view .ai-item:first-child b { font-weight: 600; }
+#app-view .ai-item:last-child { padding-top: 10px; border-top: 1px solid var(--border); }
+#app-view .ai-item:last-child b { font: 700 20px var(--disp); letter-spacing: -.01em; color: var(--accent-2); }
+
+#app-view .account-actions { flex: 1; flex-direction: column; flex-wrap: nowrap; gap: 2px; justify-content: flex-start; }
+#app-view .acc-btn {
+  width: 100%; justify-content: flex-start; gap: 11px; padding: 10px 12px;
+  background: transparent; border: 0; border-radius: 9px; color: var(--muted); font-weight: 500; font-size: 14px;
+  box-shadow: none;
+}
+#app-view .acc-btn svg { color: currentColor; opacity: .85; }
+#app-view .acc-btn:hover { background: var(--card-2); color: var(--text); }
+#app-view .acc-btn.active {
+  background: rgba(var(--accent-rgb), 0.12); color: #fff;
+  box-shadow: inset 2px 0 0 var(--accent); border: 0;
+}
+#app-view .acc-btn.active svg { color: var(--accent-2); opacity: 1; }
+#app-view .acc-logout { margin-top: auto; border-top: 1px solid var(--border); border-radius: 0 0 9px 9px; padding-top: 14px; }
+#app-view .acc-logout:hover { color: var(--red); background: rgba(255, 122, 133, .08); }
+
+#app-view .dash-main { min-width: 0; width: 100%; max-width: 1000px; padding: 30px 34px 70px; }
+#app-view .title { font-size: 22px; margin-bottom: 2px; }
+#app-view .subtitle { margin-bottom: 20px; }
+
+#app-view .booster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+#app-view .booster > .sec-card:nth-child(n+3),
+#app-view .booster > .start-btn,
+#app-view .booster > .cost-note,
+#app-view .booster > .status-box,
+#app-view .booster > .token-status,
+#app-view .booster > .form-error,
+#app-view .booster > .quote-box { grid-column: 1 / -1; }
+#app-view .booster > .form-error:empty { display: none; }
+
+#app-view #tab-deposit .card, #app-view #tab-profile .card { max-width: 560px; }
+
+/* ==================================================================== */
+/*  Responsive                                                           */
+/* ==================================================================== */
+@media (max-width: 900px) {
+  .public-view .booster { grid-template-columns: minmax(0, 1fr); }
+  #app-view .booster { grid-template-columns: minmax(0, 1fr); }
+  #app-view .booster > .sec-card:nth-child(n+3) { grid-column: auto; }
+}
+
+@media (max-width: 820px) {
+  #app-view.app-view { grid-template-columns: minmax(0, 1fr); }
+  #app-view .dash-side {
+    position: sticky; top: 0; z-index: 20; height: auto; flex-direction: row; align-items: center; gap: 10px;
+    padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--border); overflow: visible;
+  }
+  #app-view .dash-side .logo-word { display: none; }
+  #app-view .account-bar { flex-direction: row; align-items: center; gap: 8px; min-width: 0; }
+  #app-view .account-info { display: flex; padding: 6px 10px; gap: 10px; border-radius: 9px; }
+  #app-view .ai-item:first-child { display: none; }
+  #app-view .ai-item:last-child { padding: 0; border: 0; }
+  #app-view .ai-item:last-child b { font-size: 14px; }
+  #app-view .ai-item svg { display: none; }
+  #app-view .account-actions {
+    flex-direction: row; gap: 2px; overflow-x: auto; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+  }
+  #app-view .acc-btn { width: auto; padding: 8px 10px; white-space: nowrap; }
+  #app-view .acc-btn.active { box-shadow: inset 0 -2px 0 var(--accent); }
+  #app-view .acc-logout { margin: 0; border: 0; border-radius: 9px; padding: 8px 10px; }
+  #app-view .dash-main { padding: 20px 16px 60px; }
+}
+
+@media (max-width: 560px) {
+  .public-view .header { padding: 10px 14px; }
+  .public-view .boost-main { padding: 22px 14px 50px; }
+  #app-view .acc-btn { font-size: 0; gap: 0; padding: 9px 11px; }
+  #app-view .acc-btn svg { width: 20px; height: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel.active { animation: none; }
+  .start-btn::after { display: none; }
+}
