@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!--
+    Content-Security-Policy as a meta tag so the browser enforces it on THIS
+    document no matter who serves it. script-src 'self' with no 'unsafe-inline'
+    means an injected inline handler or <script> — e.g. a `<img onerror=...>`
+    smuggled in via a stored value — cannot execute, and connect-src 'self'
+    blocks exfiltration to any other origin. Backs up the server.js header.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'" />
+  <title>Boost status</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/dashboard.css" />
+  <link rel="stylesheet" href="/modern.css" />
+</head>
+<body>
+<!-- ============ REDEEM RESULT VIEW (after a key redeem) ============ -->
+  <div id="status-view" class="auth-view hidden">
+    <div class="result-card">
+      <a class="auth-logo" href="#"><img src="/logo.gif" class="auth-logo-img" alt="Ninja Boost" /><span class="logo-word">Ninja Boost</span></a>
+
+      <!-- Circular boost status — hidden once the key is fully redeemed -->
+      <div id="rr-status-section">
+        <div class="rr-ring-wrap running" id="rr-ring-wrap">
+          <svg class="rr-ring" viewBox="0 0 120 120">
+            <circle class="rr-ring-track" cx="60" cy="60" r="52"></circle>
+            <circle class="rr-ring-bar" id="rr-ring-bar" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="rr-ring-center">
+            <svg class="rr-ring-icon hidden" id="rr-icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            <svg class="rr-ring-icon hidden" id="rr-icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <span class="rr-ring-count" id="rr-ring-count">0/0</span>
+          </div>
+        </div>
+        <div class="rr-status-text">
+          <div class="rr-status-title" id="rr-state">Running boosts…</div>
+          <div class="rr-status-sub"><strong id="rr-delivered">0</strong> / <span id="rr-requested">0</span> boosts delivered</div>
+        </div>
+      </div>
+      <div class="rr-support-note hidden" id="rr-support-note">
+        Not all boosts could be delivered — please contact our Discord support below.
+      </div>
+
+      <!-- Which server -->
+      <div class="rr-section">
+        <div class="rr-label">Boosting server</div>
+        <div class="invite-preview" id="rr-server">
+          <img class="ip-icon" id="rr-ip-icon" alt="" />
+          <div class="ip-info">
+            <div class="ip-name" id="rr-ip-name">—</div>
+            <div class="ip-id" id="rr-ip-id"></div>
+          </div>
+          <div class="ip-stats">
+            <span class="ip-stat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><b id="rr-ip-members">—</b></span>
+            <span class="ip-stat online"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/></svg><b id="rr-ip-online">—</b></span>
+            <span class="ip-stat boosts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg><b id="rr-ip-boosts">—</b></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Key information -->
+      <div class="rr-section">
+        <div class="rr-label">Order</div>
+        <div class="rr-info-grid">
+          <div class="rr-info"><span>Server</span><strong id="rr-invite" class="mono">—</strong></div>
+          <div class="rr-info"><span>Boosts</span><strong id="rr-boosts">0/0</strong></div>
+          <div class="rr-info"><span>Last update</span><strong id="rr-updated">—</strong></div>
+        </div>
+      </div>
+
+      <a class="btn btn-primary btn-block btn-icon hidden" id="rr-support" href="#" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span id="rr-support-label">Discord Support · discord.gg/ninjasupp</span>
+      </a>
+    </div>
+  </div>
+
+<!-- ===================== PAGE NOT FOUND ===================== -->
+  <div id="notfound-view" class="auth-view hidden">
+    <div class="result-card">
+      <div class="rr-status-text">
+        <div class="rr-status-title failed">Order not found</div>
+        <div class="rr-status-sub">We could not find this order. Check the link you received.</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/theme.js"></script>
+  <script src="/fx.js" defer></script>
+  <script src="/status.js"></script>
+</body>
+</html>
