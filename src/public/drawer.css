@@ -1,0 +1,102 @@
+/* ==================================================================== */
+/*  NINJA BOOST — customer dashboard: top bar + hamburger menu           */
+/*  Loaded last. The left menu is an off-canvas drawer on every screen:  */
+/*  closed by default, opened with the 3-bar button, closed with ✕, a    */
+/*  tap outside, Esc, or by choosing a page.                             */
+/* ==================================================================== */
+
+#app-view.app-view { display: block; min-height: 100vh; min-height: 100dvh; }
+
+/* styles.css sets overflow-x:hidden on html AND body, which turns <body> into a
+   scroll container — a sticky top bar then never sticks. `clip` hides sideways
+   overflow without that side effect (older browsers keep `hidden`). */
+body { overflow-x: clip; }
+
+/* ---------- top bar ---------- */
+.app-top {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 56px; padding: env(safe-area-inset-top, 0px) 14px 0;
+  padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px));
+  background: rgba(7, 7, 7, .94); border-bottom: 1px solid rgba(var(--accent-rgb, 255, 45, 63), .2);
+}
+.app-top .logo { padding: 0; font-size: 18px; min-width: 0; }
+.app-top .logo-img { width: 32px; height: 32px; }
+.top-balance {
+  margin-left: auto; flex: none; padding: 7px 12px; border-radius: 9px; white-space: nowrap;
+  font: 700 14px var(--disp, inherit); color: var(--accent-2);
+  background: var(--card-2, #151515); border: 1px solid rgba(var(--accent-rgb, 255, 45, 63), .28);
+}
+
+.menu-toggle, .menu-close {
+  flex: none; width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; border-radius: 11px; cursor: pointer; color: var(--text, #fff);
+  background: var(--card-2, #151515); border: 1px solid rgba(var(--accent-rgb, 255, 45, 63), .28);
+  transition: border-color .2s, background .2s;
+}
+.menu-toggle:hover, .menu-close:hover { border-color: var(--accent); background: rgba(var(--accent-rgb, 255, 45, 63), .12); }
+.menu-toggle:focus-visible, .menu-close:focus-visible { outline: 2px solid var(--accent-2, #ff6b78); outline-offset: 2px; }
+.bars { position: relative; display: block; width: 20px; height: 14px; }
+.bars i { position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px; background: currentColor; }
+.bars i:nth-child(1) { top: 0; }
+.bars i:nth-child(2) { top: 6px; }
+.bars i:nth-child(3) { top: 12px; }
+.menu-close svg { width: 20px; height: 20px; }
+
+/* ---------- the drawer (the former left menu) ---------- */
+#app-view .dash-side {
+  position: fixed; top: 0; left: 0; bottom: 0; height: auto; z-index: 70;
+  width: min(300px, 86vw); max-width: 100%;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto; overscroll-behavior: contain;
+  background: linear-gradient(180deg, #0e0809, #050505);
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  border-right: 1px solid rgba(var(--accent-rgb, 255, 45, 63), .28);
+  box-shadow: 18px 0 50px rgba(0, 0, 0, .6);
+  transform: translateX(-102%); visibility: hidden;
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1), visibility 0s linear .28s;
+}
+#app-view.menu-open .dash-side {
+  transform: none; visibility: visible;
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1), visibility 0s;
+}
+#app-view .side-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#app-view .side-head .logo { padding: 2px 4px; min-width: 0; }
+
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, .62);
+  opacity: 0; pointer-events: none; transition: opacity .25s ease;
+}
+#app-view.menu-open .drawer-backdrop { opacity: 1; pointer-events: auto; }
+/* page behind the open menu does not scroll */
+html:has(#app-view.menu-open) { overflow: hidden; }
+
+/* menu entries: comfortable to tap, labels visible, support link shown */
+#app-view .acc-btn { min-height: 44px; font-size: 14.5px; }
+#app-view .acc-btn svg { width: 19px; height: 19px; flex: none; }
+#app-view .acc-support { display: inline-flex; text-decoration: none; }
+
+/* ---------- page ---------- */
+#app-view .dash-main { max-width: none; padding: 26px 34px 70px; }
+#app-view .dash-main > * { max-width: 932px; margin-left: auto; margin-right: auto; }
+
+@media (min-width: 821px) {
+  /* the page footer is not wanted under the dashboard (as before) */
+  body:has(#app-view:not(.hidden)) .site-watermark { display: none; }
+}
+@media (max-width: 820px) {
+  #app-view .dash-main { padding: 18px 14px calc(40px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-height: 700px) {
+  /* short phones: fit more of the menu without scrolling */
+  #app-view .dash-side { gap: 10px; }
+  #app-view .account-bar { gap: 10px; }
+  #app-view .acc-btn { min-height: 40px; padding-top: 8px; padding-bottom: 8px; }
+}
+@media (max-width: 380px) {
+  .app-top { gap: 8px; padding-left: 10px; padding-right: 10px; }
+  .app-top .logo-word { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #app-view .dash-side, .drawer-backdrop { transition: none !important; }
+}
