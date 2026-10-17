@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Same policy as the panel: scripts only from this origin, no inline script, no calls to other sites. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta name="theme-color" content="#08060b" />
+  <title>Shop · Ninja Boost</title>
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800;900&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/shop.css" />
+</head>
+<body>
+  <div class="bg" aria-hidden="true"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><i class="gridlines"></i></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
+
+  <header class="top">
+    <a class="brand" href="/" aria-label="Ninja Boost — back to the panel">
+      <img src="/logo.png" alt="" width="34" height="34" />
+      <span>Ninja<b>Boost</b></span>
+      <em>Shop</em>
+    </a>
+    <nav class="top-r" aria-label="Account">
+      <a class="link-panel" href="/">Panel</a>
+      <div id="acct"></div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <span class="eyebrow"><i></i> Premium &amp; credit packs</span>
+      <h1>Power up your <span class="grad">boost business</span></h1>
+      <p class="lead">Unlock premium, stock up on credits, or grab a bundle that does both — delivered to your account the second you pay.</p>
+      <div class="trust">
+        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>Instant delivery</span>
+        <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>Secure Litecoin checkout</span>
+        <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/></svg>Pay from your wallet</span>
+      </div>
+    </section>
+
+    <section class="shelf" aria-labelledby="packs-h">
+      <h2 id="packs-h" class="sr">Packs</h2>
+      <div class="seg" id="seg" role="tablist" aria-label="Pack type"></div>
+      <div id="packs" class="packs" aria-live="polite"></div>
+    </section>
+
+    <section class="how" aria-labelledby="how-h">
+      <h2 id="how-h">How it works</h2>
+      <ol>
+        <li><b>1</b><h3>Pick a pack</h3><p>Premium, credits or both. Credits go straight to your wallet.</p></li>
+        <li><b>2</b><h3>Pay your way</h3><p>Use the credits already in your wallet, or pay with Litecoin in a minute.</p></li>
+        <li><b>3</b><h3>Done</h3><p>Premium switches on and credits land instantly — no waiting for support.</p></li>
+      </ol>
+    </section>
+
+    <section class="faq" aria-labelledby="faq-h">
+      <h2 id="faq-h">Good to know</h2>
+      <details><summary>What are credits?</summary><p>Credits are the balance of your account wallet, in US dollars. Premium accounts use them to pay for the boosts they deliver; they never expire.</p></details>
+      <details><summary>What does premium unlock?</summary><p>Your own token stock, redeem keys, a branded redeem page, the joiner, the token checker and the API — everything for selling boosts under your own name.</p></details>
+      <details><summary>Can I renew before premium ends?</summary><p>Yes. Buying premium again adds the new days after your current end date, so nothing is lost.</p></details>
+      <details><summary>How does Litecoin checkout work?</summary><p>You get a one-time address and the exact amount. Send it, and this page updates by itself as soon as the payment is confirmed — usually within a few minutes.</p></details>
+      <details><summary>I paid a little less by mistake</summary><p>Small differences are fine. If the payment is a few cents short, the money stays in your wallet and you can finish the order from there.</p></details>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>© 2026 Ninja Boost</span>
+    <a href="/">Back to the panel</a>
+  </footer>
+
+  <!-- Checkout -->
+  <div id="sheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-backdrop" data-close></div>
+    <div class="sheet-card" id="sheet-card">
+      <button type="button" class="sheet-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div id="sheet-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="/shop.js"></script>
+</body>
+</html>
