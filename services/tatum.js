@@ -26,6 +26,40 @@ class TatumService {
     this.startIndex = Number(options.startIndex || process.env.LTC_START_INDEX || 1);
     this.forwardFee = String(options.forwardFee || process.env.LTC_FORWARD_FEE || '0.0001');
     this.webhookBaseUrl = options.webhookBaseUrl || process.env.WEBHOOK_BASE_URL || '';
+
+    // Petits caches en mémoire pour économiser les crédits Tatum (le front et le cron
+    // interrogent très souvent le même taux / la même adresse).
+    this.rateTtlMs = Number(process.env.TATUM_RATE_TTL_MS || 60_000);
+    this.balanceTtlMs = Number(process.env.TATUM_BALANCE_TTL_MS || 30_000);
+    this._rateCache = new Map();     // 'LTC/USD' -> { value, at, pending }
+    this._balanceCache = new Map();  // address   -> { value, at, pending }
+    this._addressCache = new Map();  // index     -> address (dérivation déterministe)
+  }
+
+  /** Cache générique : TTL + dédoublonnage des appels simultanés + pas de cache des erreurs. */
+  _cached(map, key, ttlMs, loader, { staleOnError = false } = {}) {
+    const hit = map.get(key);
+    const now = Date.now();
+    if (hit && hit.value !== undefined && now - hit.at < ttlMs) return Promise.resolve(hit.value);
+    if (hit && hit.pending) return hit.pending;
+
+    const pending = loader()
+      .then((value) => {
+        map.set(key, { value, at: Date.now() });
+        if (map.size > 500) map.delete(map.keys().next().value);  // borne mémoire
+        return value;
+      })
+      .catch((err) => {
+        if (staleOnError && hit && hit.value !== undefined) {
+          map.set(key, { value: hit.value, at: hit.at });
+          return hit.value;                                        // vieux taux plutôt qu'une erreur
+        }
+        if (hit && hit.value !== undefined) map.set(key, { value: hit.value, at: hit.at });
+        else map.delete(key);
+        throw err;
+      });
+    map.set(key, { value: hit ? hit.value : undefined, at: hit ? hit.at : 0, pending });
+    return pending;
   }
 
   /** Minimum config needed to hand out deposit addresses. */
@@ -79,18 +113,28 @@ class TatumService {
    * Uses Tatum's rate endpoint; returns a number.
    */
   async getRate(currency = 'LTC', basePair = 'USD') {
-    const data = await this._request(
-      `/tatum/rate/${currency}?basePair=${basePair}`
+    return this._cached(
+      this._rateCache, `${currency}/${basePair}`, this.rateTtlMs,
+      async () => {
+        const data = await this._request(`/tatum/rate/${currency}?basePair=${basePair}`);
+        const value = Number(data.value);
+        if (!(value > 0)) throw new Error('Invalid exchange rate from Tatum');
+        return value;
+      },
+      { staleOnError: true }
     );
-    const value = Number(data.value);
-    if (!(value > 0)) throw new Error('Invalid exchange rate from Tatum');
-    return value;
   }
 
   /** Derive the deposit address for a given index. */
   async getAddress(index) {
-    const data = await this._request(`/litecoin/address/${this.xpub}/${index}`);
-    return data.address;
+    // Une adresse dérivée d'un xpub + index ne change jamais : on la garde.
+    return this._cached(
+      this._addressCache, Number(index), Infinity,
+      async () => {
+        const data = await this._request(`/litecoin/address/${this.xpub}/${index}`);
+        return data.address;
+      }
+    );
   }
 
   /** Get the private key for an index (needed to forward funds). */
@@ -111,9 +155,14 @@ class TatumService {
    * Tatum v3 returns { balance: "0.018..." } or { incoming, outgoing }.
    */
   async getAddressBalance(address) {
-    const data = await this._request(`/litecoin/address/balance/${address}`);
-    const balance = Number(data.balance ?? data.incoming ?? 0);
-    return { balance, received: balance };
+    return this._cached(
+      this._balanceCache, address, this.balanceTtlMs,
+      async () => {
+        const data = await this._request(`/litecoin/address/balance/${address}`);
+        const balance = Number(data.balance ?? data.incoming ?? 0);
+        return { balance, received: balance };
+      }
+    );
   }
 
 
@@ -162,6 +211,9 @@ class TatumService {
     return data.id || null;
   }
 }
+
+module.exports = TatumService;
+module.exports.TatumService = TatumService;
 
 module.exports = TatumService;
 module.exports.TatumService = TatumService;
