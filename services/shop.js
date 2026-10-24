@@ -333,10 +333,26 @@ async function onDepositCompleted(depositId) {
 
 // Safety net: checks the Litecoin deposits that are still pending (a customer may close the page, or the
 // webhook may not be set up), so a payment is always picked up and its order delivered.
+// Économie de crédits Tatum : (1) on ne regarde que les dépôts des dernières 24 h (même durée que les
+// commandes boutique), (2) on ne passe pas à chaque cycle de 20 s mais toutes les quelques minutes.
+// Un paiement tardif reste détecté par le webhook Tatum ou quand l'utilisateur rouvre sa page.
+const DEPOSIT_SYNC_WINDOW_MS = Number(process.env.DEPOSIT_SYNC_WINDOW_MS || DAY_MS);
+let lastDepositSyncAt = 0;
+
+function depositSyncEveryMs(wallet) {
+  const env = Number(process.env.DEPOSIT_SYNC_EVERY_MS);
+  if (Number.isFinite(env) && env >= 0 && process.env.DEPOSIT_SYNC_EVERY_MS !== undefined && process.env.DEPOSIT_SYNC_EVERY_MS !== '') return env;
+  // webhook actif -> le cron n'est qu'un filet de sécurité (5 min) ; sinon 2 min
+  return wallet.tatum.webhookBaseUrl ? 5 * 60_000 : 2 * 60_000;
+}
+
 async function syncPendingDeposits(limit = 10) {
   const wallet = require('../routes/wallet');
   if (!wallet.tatum.isConfigured()) return 0;
-  const since = new Date(Date.now() - 7 * DAY_MS).toISOString();
+  const now = Date.now();
+  if (now - lastDepositSyncAt < depositSyncEveryMs(wallet)) return 0;
+  lastDepositSyncAt = now;
+  const since = new Date(now - DEPOSIT_SYNC_WINDOW_MS).toISOString();
   const { data } = await supabase.from('deposits').select('*').eq('status', 'pending').gt('created_at', since).order('created_at', { ascending: false }).limit(limit);
   let n = 0;
   for (const dep of data || []) {
